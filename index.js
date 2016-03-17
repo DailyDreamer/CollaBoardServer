@@ -7,6 +7,13 @@ var bodyParser = require('body-parser');
 app.use(bodyParser.json()); // for parsing application/json
 app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
 
+var origin = "http://localhost:8080";
+app.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", origin);
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
 
@@ -21,14 +28,19 @@ io.on('connection', function(socket){
     console.log('a user leave room ' + rid);
     socket.leave(rid);
   });
-  
+
   socket.on('object:added', function(msg) {
-    var pathObj = JSON.parse(msg);
+    console.log(JSON.parse(msg).uuid);
     socket.broadcast.emit('object:added', msg);
   });
+
   socket.on('note:added', function(msg) {
     socket.broadcast.emit('note:added', msg);
   });
+
+  socket.on('object:modified', function(msg) {
+    socket.broadcast.emit('object:modified', msg);
+  })
 });
 
 
@@ -36,6 +48,11 @@ var router = express.Router();
 
 router.get('/', function(req, res) {
   res.send('hello world');
+});
+
+router.get('/rid', function(req, res) {
+  //gen CSPRNG code with (bits, radix).
+  res.json(require('csprng')(160, 16));
 });
 
 
