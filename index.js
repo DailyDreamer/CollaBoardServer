@@ -30,8 +30,11 @@ io.on('connection', function(socket){
   });
 
   socket.on('object:added', function(msg) {
-    console.log(JSON.parse(msg).uuid);
     socket.broadcast.emit('object:added', msg);
+  });
+
+  socket.on('object:removed', function(msg) {
+    socket.broadcast.emit('object:removed', msg);
   });
 
   socket.on('note:added', function(msg) {
