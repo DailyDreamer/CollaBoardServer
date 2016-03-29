@@ -16,6 +16,7 @@ app.use(function(req, res, next) {
 
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
+var models = require('./models/models');
 
 io.on('connection', function(socket){
   var rid = '';
@@ -29,21 +30,75 @@ io.on('connection', function(socket){
     socket.leave(rid);
   });
 
-  socket.on('object:added', function(msg) {
-    socket.broadcast.emit('object:added', msg);
-  });
+  var events = ['object:added', 'object:removed', 'note:added', 'object:modified'];
 
-  socket.on('object:removed', function(msg) {
-    socket.broadcast.emit('object:removed', msg);
-  });
+  events.map(listen);
 
-  socket.on('note:added', function(msg) {
-    socket.broadcast.emit('note:added', msg);
-  });
+  function listen(e) {
+    socket.on(e, function(msg) {
+      socket.broadcast.emit(e, msg);
 
-  socket.on('object:modified', function(msg) {
-    socket.broadcast.emit('object:modified', msg);
-  })
+      models.Room.findById(rid, function(err, room) {
+        if (err) {
+          console.log(err);
+        } else if(room) {
+
+        } else {
+          room = new models.Room({
+            _id: rid,
+            objects: '{}'
+          });
+        }
+        switch (e) {
+          case 'object:added':
+            dbAdd(msg, room);
+            break;
+          case 'object:removed':
+            dbRemove(msg, room);
+            break;
+          case 'object:modified':
+            dbModify(msg, room);
+            break;
+          case 'note:added':
+            dbNoteAdd(msg, room);
+            break;
+          default:
+            console.log('unknown event');;
+        }
+      });
+    });
+    function dbAdd(msg, room) {
+      var rawObject = JSON.parse(msg);
+      var objects = JSON.parse(room.objects);
+      objects[rawObject.uuid] = rawObject;
+      room.objects = JSON.stringify(objects);
+      room.save();
+    }
+
+    function dbRemove(msg, room) {
+      var rawObject = JSON.parse(msg);
+      var objects = JSON.parse(room.objects);
+      delete objects[rawObject.uuid];
+      room.objects = JSON.stringify(objects);
+      room.save();
+    }
+
+    function dbModify(msg, room) {
+      var rawObject = JSON.parse(msg);
+      var objects = JSON.parse(room.objects);
+      objects[rawObject.uuid] = rawObject;
+      room.objects = JSON.stringify(objects);
+      room.save();
+    }
+
+    function dbNoteAdd(msg, room) {
+      var rawObject = JSON.parse(msg);
+      var objects = JSON.parse(room.objects);
+      objects[rawObject.uuid] = rawObject;
+      room.objects = JSON.stringify(objects);
+      room.save();
+    }
+  }
 });
 
 
@@ -53,9 +108,21 @@ router.get('/', function(req, res) {
   res.send('hello world');
 });
 
-router.get('/rid', function(req, res) {
+router.get('/genRid', function(req, res) {
   //gen CSPRNG code with (bits, radix).
   res.json(require('csprng')(160, 16));
+});
+
+router.get('/state/:rid', function(req, res) {
+  models.Room.findById(req.params.rid, function(err, room) {
+    if (err) {
+      console.log(err);
+    } else if(room) {
+      res.send(room.objects);
+    } else {
+      res.send('');
+    }
+  });
 });
 
 
