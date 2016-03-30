@@ -59,9 +59,6 @@ io.on('connection', function(socket){
           case 'object:modified':
             dbModify(msg, room);
             break;
-          case 'note:added':
-            dbNoteAdd(msg, room);
-            break;
           default:
             console.log('unknown event');;
         }
@@ -84,14 +81,6 @@ io.on('connection', function(socket){
     }
 
     function dbModify(msg, room) {
-      var rawObject = JSON.parse(msg);
-      var objects = JSON.parse(room.objects);
-      objects[rawObject.uuid] = rawObject;
-      room.objects = JSON.stringify(objects);
-      room.save();
-    }
-
-    function dbNoteAdd(msg, room) {
       var rawObject = JSON.parse(msg);
       var objects = JSON.parse(room.objects);
       objects[rawObject.uuid] = rawObject;
