@@ -1,18 +1,7 @@
 var express = require('express');
 var app = express();
 
-app.use(express.static(__dirname + '/public'));
-
-var bodyParser = require('body-parser');
-app.use(bodyParser.json()); // for parsing application/json
-app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
-
-var origin = "http://localhost:8080";
-app.use(function(req, res, next) {
-  res.header("Access-Control-Allow-Origin", origin);
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-  next();
-});
+// Socket.io Server
 
 var http = require('http').Server(app);
 var io = require('socket.io')(http);
@@ -90,6 +79,40 @@ io.on('connection', function(socket){
   }
 });
 
+// Http Server
+
+//app.use(express.static(__dirname + '/public'));
+
+var bodyParser = require('body-parser');
+app.use(bodyParser.json()); // for parsing application/json
+
+var cookieParser = require('cookie-parser');
+app.use(cookieParser());
+
+var origin = "http://localhost:8080";
+app.use(function(req, res, next) {
+  res.header("Access-Control-Allow-Origin", origin);
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
+
+var expressJwt = require('express-jwt');
+var jwt = require('jsonwebtoken');
+
+var secret = 'secret';
+
+app.use(expressJwt({
+  secret: secret,
+  getToken: function(req) {
+    if (req.cookies['token']) {
+      return req.cookies['token'];
+    }
+    return null;
+  }
+}).unless({
+  path: ['/api/login', '/api/signUp']
+}));
 
 var router = express.Router();
 
@@ -114,6 +137,50 @@ router.get('/state/:rid', function(req, res) {
   });
 });
 
+router.post('/signUp', function(req, res) {
+  console.log(req.body);
+  var user = req.body;
+  models.User.findById(user._id, function(err, data) {
+    if (err) {
+      console.log(err);
+      res.json(JSON.stringify({err: err}));
+    } else if(data) {
+      res.json(JSON.stringify({err: 'User already exist!'}));
+    } else {
+      var newUser = new models.User({
+        _id: user._id,
+        password: user.password,
+        rooms: [],
+      });
+      newUser.save();
+      res.json(JSON.stringify({success: 'Success'}));
+    }
+  });
+});
+
+router.post('/login', function(req, res) {
+  var user = req.body;
+  models.User.findById(user._id, function(err, data) {
+    if (err) {
+      console.log(err);
+      res.json(JSON.stringify({err: err}));
+    } else if(data) {
+      if (user.password === data.password){
+        var token = jwt.sign({ username: user._id }, secret);
+        res.cookie('token', token, { maxAge: 180*24*3600*1000, httpOnly: true });
+        res.json(token);
+      } else {
+        res.json(JSON.stringify({err: 'Password not valid!'}));
+      }
+    } else {
+      res.json(JSON.stringify({err: 'User not exist!'}));
+    }
+  });
+});
+
+router.post('/logout', function(req, res) {
+  res.clearCookie('token');
+});
 
 app.use('/api', router);
 
