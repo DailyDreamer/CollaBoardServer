@@ -120,12 +120,36 @@ router.get('/', function(req, res) {
   res.send('hello world');
 });
 
-router.get('/genRid', function(req, res) {
+router.post('/room', function(req, res) {
   //gen CSPRNG code with (bits, radix).
-  res.json(require('csprng')(160, 16));
+  console.log(req.user);
+  function newRoom() {
+    var rid = require('csprng')(160, 16);
+    models.Room.findById(rid, function(err, room) {
+      if (err) {
+        console.log(err);
+      } else if (room) {
+        newRoom();
+      } else { //sucess
+        models.User.findById(req.user.username, function(err, user) {
+          if (err) {
+            console.log(err);
+          } else if (user) {
+            user.rooms.push(rid);
+            res.json(rid);
+          } else {
+            //if user deleted from one client and cookies of other client not expire
+            res.status(401).send('Unauthorized');
+            console.log('User not exist!');
+          }
+        });
+      }
+    });
+  }
+  newRoom();
 });
 
-router.get('/state/:rid', function(req, res) {
+router.get('/room/:rid', function(req, res) {
   models.Room.findById(req.params.rid, function(err, room) {
     if (err) {
       console.log(err);
@@ -138,7 +162,6 @@ router.get('/state/:rid', function(req, res) {
 });
 
 router.post('/signUp', function(req, res) {
-  console.log(req.body);
   var user = req.body;
   models.User.findById(user._id, function(err, data) {
     if (err) {
