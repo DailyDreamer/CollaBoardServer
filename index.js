@@ -33,10 +33,7 @@ io.on('connection', function(socket){
         } else if(room) {
 
         } else {
-          room = new models.Room({
-            _id: rid,
-            objects: '{}'
-          });
+          console.log('Room not exist!');
         }
         switch (e) {
           case 'object:added':
@@ -92,7 +89,8 @@ app.use(cookieParser());
 var origin = "http://localhost:8080";
 app.use(function(req, res, next) {
   res.header("Access-Control-Allow-Origin", origin);
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  //res.header("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
   res.header("Access-Control-Allow-Credentials", "true");
   next();
 });
@@ -122,27 +120,35 @@ router.get('/', function(req, res) {
 
 router.post('/room', function(req, res) {
   //gen CSPRNG code with (bits, radix).
-  console.log(req.user);
   function newRoom() {
     var rid = require('csprng')(160, 16);
+    var rname = req.body.rname;
     models.Room.findById(rid, function(err, room) {
       if (err) {
         console.log(err);
       } else if (room) {
         newRoom();
-      } else { //sucess
+      } else {
+        //sucess
         models.User.findById(req.user.username, function(err, user) {
           if (err) {
             console.log(err);
           } else if (user) {
-            user.rooms.push(rid);
             res.json(rid);
+            user.rooms.push({ rid:rid, rname:rname });
+            user.save();
           } else {
             //if user deleted from one client and cookies of other client not expire
             res.status(401).send('Unauthorized');
             console.log('User not exist!');
           }
         });
+        var room = new models.Room({
+          _id: rid,
+          name: rname,
+          objects: '{}'
+        });
+        room.save();
       }
     });
   }
@@ -155,8 +161,26 @@ router.get('/room/:rid', function(req, res) {
       console.log(err);
     } else if(room) {
       res.send(room.objects);
+      models.User.findById(req.user.username, function(err, data) {
+        if (err) {
+          console.log(err);
+        } else if (data) {
+          var hasRoom = false;
+          for (var r of data.rooms) {
+            if (r.rid === room._id) {
+              hasRoom = true;
+              break;
+            }
+          }
+          if (!hasRoom) {
+            data.rooms.push({ rid:room._id, rname: room.name });
+            data.save();
+          }
+        }
+      });
     } else {
-      res.send('');
+      res.status(404).send('Room not exist');
+      console.log('Room not exist!');
     }
   });
 });
@@ -203,6 +227,19 @@ router.post('/login', function(req, res) {
 
 router.post('/logout', function(req, res) {
   res.clearCookie('token');
+});
+
+router.get('/user', function(req, res) {
+  models.User.findById(req.user.username, function(err, data) {
+    if (err) {
+      console.log(err);
+      res.json(JSON.stringify({err: err}));
+    } else if (data) {
+      res.json(data);
+    } else {
+      res.json(JSON.stringify({err: 'User not exist!'}));
+    }
+  });
 });
 
 app.use('/api', router);

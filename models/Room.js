@@ -2,6 +2,7 @@ var mongoose = require('mongoose');
 
 var RoomSchema = {
   _id: String,
+  name: String,
   objects: String,
 };
 
