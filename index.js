@@ -134,9 +134,9 @@ router.post('/room', function(req, res) {
           if (err) {
             console.log(err);
           } else if (user) {
-            res.json(rid);
             user.rooms.push({ rid:rid, rname:rname });
             user.save();
+            res.json(rid);
           } else {
             //if user deleted from one client and cookies of other client not expire
             res.status(401).send('Unauthorized');
