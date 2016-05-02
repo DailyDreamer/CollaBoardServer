@@ -19,58 +19,103 @@ io.on('connection', function(socket){
     socket.leave(rid);
   });
 
-  var events = ['object:added', 'object:removed', 'note:added', 'object:modified'];
+  var events = ['ADD', 'STYLE_CHANGE', 'CONTENT_CHANGE', 'DELETE', 'ADD_LINK', 'DELETE_LINK'];
 
   events.map(listen);
 
   function listen(e) {
     socket.on(e, function(msg) {
-      socket.broadcast.emit(e, msg);
+      socket.broadcast.to(rid).emit(e, msg);
 
       models.Room.findById(rid, function(err, room) {
         if (err) {
           console.log(err);
+          return;
         } else if(room) {
 
         } else {
           console.log('Room not exist!');
+          return;
         }
         switch (e) {
-          case 'object:added':
+          case 'ADD':
             dbAdd(msg, room);
             break;
-          case 'object:removed':
-            dbRemove(msg, room);
+          case 'STYLE_CHANGE':
+            dbStyleChange(msg, room);
             break;
-          case 'object:modified':
-            dbModify(msg, room);
+          case 'CONTENT_CHANGE':
+            dbContentChange(msg, room);
+            break;
+          case 'DELETE':
+            dbDelete(msg, room);
+            break;
+          case 'ADD_LINK':
+            dbAddLink(msg, room);
+            break;
+          case 'DELETE_LINK':
+            dbDeleteLink(msg, room);
             break;
           default:
             console.log('unknown event');;
         }
       });
     });
+
     function dbAdd(msg, room) {
-      var rawObject = JSON.parse(msg);
-      var objects = JSON.parse(room.objects);
-      objects[rawObject.uuid] = rawObject;
-      room.objects = JSON.stringify(objects);
+      var note = JSON.parse(msg);
+      var notes = JSON.parse(room.notes);
+      notes[note.id] = note;
+      room.notes = JSON.stringify(notes);
       room.save();
     }
 
-    function dbRemove(msg, room) {
-      var rawObject = JSON.parse(msg);
-      var objects = JSON.parse(room.objects);
-      delete objects[rawObject.uuid];
-      room.objects = JSON.stringify(objects);
+    function dbStyleChange(msg, room) {
+      var style = JSON.parse(msg);
+      var notes = JSON.parse(room.notes);
+      notes[style.id].x = style.x;
+      notes[style.id].y = style.y;
+      room.notes = JSON.stringify(notes);
       room.save();
     }
 
-    function dbModify(msg, room) {
-      var rawObject = JSON.parse(msg);
-      var objects = JSON.parse(room.objects);
-      objects[rawObject.uuid] = rawObject;
-      room.objects = JSON.stringify(objects);
+    function dbContentChange(msg, room) {
+      var content = JSON.parse(msg);
+      var notes = JSON.parse(room.notes);
+      notes[content.id].content = content.content;
+      room.notes = JSON.stringify(notes);
+      room.save();
+    }
+
+    function dbDelete(msg, room) {
+      var id = JSON.parse(msg);
+      var notes = JSON.parse(room.notes);
+      var links = JSON.parse(room.links);
+
+      for (var k of Object.keys(links)){
+        if (links[k].source === id || links[k].target === id)
+          delete links[k];
+      }
+      delete notes[id];
+
+      room.links = JSON.stringify(links);
+      room.notes = JSON.stringify(notes);
+      room.save();
+    }
+
+    function dbAddLink(msg, room) {
+      var link = JSON.parse(msg);
+      var links = JSON.parse(room.links);
+      links[link.source+':'+link.target] = link;
+      room.links = JSON.stringify(link);
+      room.save();
+    }
+
+    function dbDeleteLink(msg, room) {
+      var id = JSON.parse(msg);
+      var links = JSON.parse(room.links);
+      delete links[id];
+      room.links = JSON.stringify(links);
       room.save();
     }
   }
@@ -86,10 +131,11 @@ app.use(bodyParser.json()); // for parsing application/json
 var cookieParser = require('cookie-parser');
 app.use(cookieParser());
 
-var origin = "http://localhost:8080";
+var origin = "http://localhost:8080, http://59.66.133.78:8080";
 app.use(function(req, res, next) {
-  res.header("Access-Control-Allow-Origin", origin);
-  //res.header("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+  //TODO verify origin whitelist here
+  res.header("Access-Control-Allow-Origin", req.headers.origin);
+  res.header("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
   res.header("Access-Control-Allow-Credentials", "true");
   next();
@@ -126,6 +172,7 @@ router.post('/room', function(req, res) {
     models.Room.findById(rid, function(err, room) {
       if (err) {
         console.log(err);
+        res.json({ err: err });
       } else if (room) {
         newRoom();
       } else {
@@ -133,6 +180,7 @@ router.post('/room', function(req, res) {
         models.User.findById(req.user.username, function(err, user) {
           if (err) {
             console.log(err);
+            res.json({ err: err });
           } else if (user) {
             user.rooms.push({ rid:rid, rname:rname });
             user.save();
@@ -146,7 +194,8 @@ router.post('/room', function(req, res) {
         var room = new models.Room({
           _id: rid,
           name: rname,
-          objects: '{}'
+          notes: '{}',
+          links: '{}'
         });
         room.save();
       }
@@ -159,8 +208,10 @@ router.get('/room/:rid', function(req, res) {
   models.Room.findById(req.params.rid, function(err, room) {
     if (err) {
       console.log(err);
+      res.json({ err:err });
     } else if(room) {
-      res.send(room.objects);
+      res.json(room);
+      //add room to user
       models.User.findById(req.user.username, function(err, data) {
         if (err) {
           console.log(err);
@@ -190,9 +241,9 @@ router.post('/signUp', function(req, res) {
   models.User.findById(user._id, function(err, data) {
     if (err) {
       console.log(err);
-      res.json(JSON.stringify({err: err}));
+      res.json({err: err});
     } else if(data) {
-      res.json(JSON.stringify({err: 'User already exist!'}));
+      res.json({err: 'User already exist!'});
     } else {
       var newUser = new models.User({
         _id: user._id,
@@ -200,7 +251,7 @@ router.post('/signUp', function(req, res) {
         rooms: [],
       });
       newUser.save();
-      res.json(JSON.stringify({success: 'Success'}));
+      res.json({success: 'Success'});
     }
   });
 });
@@ -210,17 +261,17 @@ router.post('/login', function(req, res) {
   models.User.findById(user._id, function(err, data) {
     if (err) {
       console.log(err);
-      res.json(JSON.stringify({err: err}));
+      res.json({err: err});
     } else if(data) {
       if (user.password === data.password){
         var token = jwt.sign({ username: user._id }, secret);
         res.cookie('token', token, { maxAge: 180*24*3600*1000, httpOnly: true });
         res.json(token);
       } else {
-        res.json(JSON.stringify({err: 'Password not valid!'}));
+        res.json({err: 'Password not valid!'});
       }
     } else {
-      res.json(JSON.stringify({err: 'User not exist!'}));
+      res.json({err: 'User not exist!'});
     }
   });
 });
@@ -233,11 +284,11 @@ router.get('/user', function(req, res) {
   models.User.findById(req.user.username, function(err, data) {
     if (err) {
       console.log(err);
-      res.json(JSON.stringify({err: err}));
+      res.json({err: err});
     } else if (data) {
       res.json(data);
     } else {
-      res.json(JSON.stringify({err: 'User not exist!'}));
+      res.json({err: 'User not exist!'});
     }
   });
 });
