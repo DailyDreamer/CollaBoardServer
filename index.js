@@ -107,7 +107,7 @@ io.on('connection', function(socket){
       var link = JSON.parse(msg);
       var links = JSON.parse(room.links);
       links[link.source+':'+link.target] = link;
-      room.links = JSON.stringify(link);
+      room.links = JSON.stringify(links);
       room.save();
     }
 
