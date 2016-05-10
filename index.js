@@ -12,13 +12,18 @@ app.use((req, res, next) => {
   next();
 });
 
+let bodyParser = require('body-parser');
+app.use(bodyParser.json()); // for parsing application/json
+
+let cookieParser = require('cookie-parser');
+app.use(cookieParser());
 
 let expressJwt = require('express-jwt');
 app.use(expressJwt({
   secret: config.JWTSecret,
   requestProperty: 'user',
   getToken: function(req) {
-    if (req.cookies['token']) {
+    if (req.cookies && req.cookies['token']) {
       return req.cookies['token'];
     }
     return null;
@@ -26,13 +31,6 @@ app.use(expressJwt({
 }).unless({
   path: ['/api/login', '/api/signup']
 }));
-
-
-let bodyParser = require('body-parser');
-app.use(bodyParser.json()); // for parsing application/json
-
-let cookieParser = require('cookie-parser');
-app.use(cookieParser());
 
 app.get('/', (req, res) => {
   res.send('hello world!')

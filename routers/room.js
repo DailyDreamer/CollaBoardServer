@@ -14,7 +14,7 @@ router.post('/', (req, res) => {
         newRoom();
       } else {
         //sucess
-        models.User.findById(req.user.username, (err, user) => {
+        models.User.findById(req.user._id, (err, user) => {
           if (err) {
             console.log(err);
             res.json({ err: err });
@@ -48,7 +48,7 @@ router.get('/:rid', (req, res) => {
     } else if(room) {
       res.json(room);
       //add room to user
-      models.User.findById(req.user.username, (err, data) => {
+      models.User.findById(req.user._id, (err, data) => {
         if (err) {
           console.log(err);
         } else if (data) {
