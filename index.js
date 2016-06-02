@@ -42,7 +42,7 @@ let http = require('http').Server(app);
 // Socket.io Server
 require('./socket')(http);
 
-app.set('port', (process.env.PORT || 3000));
+app.set('port', (process.env.PORT || 8001));
 http.listen(app.get('port'), () => {
   console.log(require('os').networkInterfaces());
   console.log('App listening on port ' + app.get('port'));
