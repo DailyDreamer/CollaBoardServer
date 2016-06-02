@@ -1,7 +1,7 @@
 let mongoose = require('mongoose');
 
 function createModels() {
-  mongoose.connect('mongodb://localhost:27017/CollaBoard', { config: { autoIndex: false } });
+  mongoose.connect('mongodb://lixc12:123456@ds038379.mlab.com:38379/collaboard', { config: { autoIndex: false } });
   let User= mongoose.model('User', require('./User'));
   let Room= mongoose.model('Room', require('./Room'));
   let models = {

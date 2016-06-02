@@ -29,7 +29,7 @@ app.use(expressJwt({
     return null;
   }
 }).unless({
-  path: ['/api/login', '/api/signup']
+  path: ['/api/login', '/api/signup', '/']
 }));
 
 app.get('/', (req, res) => {
