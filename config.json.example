@@ -1,3 +1,4 @@
 {
   "JWTSecret": "secret"
+  "dbaddr": "mongodb://username:password@ds038379.mlab.com:38379/collaboard"
 }

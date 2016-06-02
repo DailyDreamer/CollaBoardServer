@@ -1,3 +1,4 @@
 {
-  "JWTSecret": "secret"
+  "JWTSecret": "secret",
+  "dbaddr": "mongodb://lixc12:123456@ds038379.mlab.com:38379/collaboard"
 }
