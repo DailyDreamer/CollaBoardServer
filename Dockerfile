@@ -8,5 +8,8 @@ ADD . /collaboard
 RUN cd /collaboard; npm install
 RUN npm install -g pm2
 
-EXPOSE  3000
-CMD ["pm2", "start", "/collaboard/index.js"]
+EXPOSE  8001
+CMD ["pm2", "start", "--no-daemon", "/collaboard/index.js"]
+
+# docker build -t collaboardserver .
+# docker run -p 8001:8001 -d collaboardserver
